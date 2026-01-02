@@ -1,6 +1,6 @@
 from django.db import models
-from ad.models import Ad
-from user.models import User
+from django.conf import settings
+
 
 class Comment(models.Model):
     class Rating(models.IntegerChoices):
@@ -9,33 +9,37 @@ class Comment(models.Model):
         THREE = 3, '3'
         FOUR = 4, '4'
         FIVE = 5, '5'
-    
-    content = models.TextField()
+
+    content = models.TextField(verbose_name='متن نظر')
     rating = models.IntegerField(choices=Rating.choices, verbose_name='امتیاز')
+
     ad = models.ForeignKey(
-        Ad, 
-        on_delete=models.CASCADE, 
-        related_name='comments', 
+        'ad.Ad',
+        on_delete=models.CASCADE,
+        related_name='comments',
         verbose_name='آگهی'
     )
+
     user = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='comments', 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='comments_written',
         verbose_name='کاربر'
     )
+
     performer = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='performer_comments',
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='comments_received',
         verbose_name='انجام‌دهنده'
     )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
-    
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'نظر'
         verbose_name_plural = 'نظرات'
-    
+
     def __str__(self):
-        return f'نظر {self.user.username} برای {self.ad.title} - امتیاز: {self.rating}'
+        return f'نظر {self.user} برای {self.ad} - امتیاز: {self.rating}'

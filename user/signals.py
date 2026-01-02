@@ -1,23 +1,18 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import User, Profile, Role
+from django.contrib.auth import get_user_model
+
+from .models import Profile, Role
+
+User = get_user_model()
 
 
 @receiver(post_save, sender=User)
-def build_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
+def create_profile_and_default_role(sender, instance, created, **kwargs):
+    if not created:
+        return
 
-@receiver(post_save, sender=User)
-def save_profile(sender, instance, **kwargs):
-    instance.profile.save()
+    Profile.objects.create(user=instance)
 
-@receiver(post_save, sender=User)
-def create_role(sender, instance, created, **kwargs):
-    if created:
-        Role.objects.create(user=instance)
-
-@receiver(post_save, sender=User)
-def save_role(sender, instance, **kwargs):
-    instance.role.save()
-
+    role, _ = Role.objects.get_or_create(name=Role.Names.CUSTOMER)
+    instance.roles.add(role)

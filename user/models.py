@@ -3,21 +3,25 @@ from django.contrib.auth.models import AbstractUser
 
 
 class Role(models.Model):
-    CUSTOMER = 'customer'
-    PERFORMER = 'performer'
-    SUPPORT = 'support'
-    ADMIN = 'admin'
+    class Names(models.TextChoices):
+        CUSTOMER = 'مشتری', 'Customer'
+        PERFORMER = 'پیمانکار', 'Performer'
+        SUPPORT = 'پشتیبانی', 'Support'
+        ADMIN = 'مدیر', 'Admin'
 
-    name = models.CharField(max_length=255, unique=True, verbose_name='نام نقش')
-    
+    name = models.CharField(max_length=50, unique=True, choices=Names.choices)
+
+
+    name = models.CharField(max_length=50, unique=True, verbose_name='نام نقش')
+
     class Meta:
         ordering = ['name']
         verbose_name = 'نقش'
         verbose_name_plural = 'نقش‌ها'
-    
+
     def __str__(self):
         return self.name
-        
+
 
 class User(AbstractUser):
     roles = models.ManyToManyField(
@@ -26,17 +30,18 @@ class User(AbstractUser):
         related_name='users',
         verbose_name='نقش‌ها',
     )
-    
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='شماره تماس')
+
     class Meta:
         verbose_name = 'کاربر'
         verbose_name_plural = 'کاربران'
-    
+
     def __str__(self):
         return self.username
 
-class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
 
+class Profile(models.Model):
+    user = models.OneToOneField('user.User', on_delete=models.CASCADE, related_name='profile')
 
     def __str__(self):
         return self.user.username
