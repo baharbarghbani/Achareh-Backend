@@ -18,7 +18,9 @@ from .serializer import (
     AdUpdateSerializer,
     AdRequestCreateSerializer,
     AdRequestReadSerializer,
-    AdRequestUpdateSerializer,
+    AdRequestChooseSerializer,
+    AdRequestDoneReportedSerializer,
+    AdRequestDoneConfirmedSerializer,
 )
 from user.utils import is_performer
 
@@ -31,7 +33,6 @@ class AdListCreateAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-
         return Ad.objects.filter(creator=self.request.user)
 
     def get_serializer_class(self):
@@ -46,7 +47,7 @@ class AdListCreateAPIView(ListCreateAPIView):
 class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     """
     No Ad.status transitions here.
-    Users can update only editable fields from AdUpdateSerializer.
+    Users can only update editable fields from AdUpdateSerializer.
     """
     permission_classes = [IsAuthenticated]
 
@@ -62,10 +63,19 @@ class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
         return AdReadSerializer
 
     def patch(self, request, *args, **kwargs):
-        # purely normal field update; Ad.status not handled here at all
         response = super().patch(request, *args, **kwargs)
         ad = self.get_object()
         return Response(AdReadSerializer(ad).data, status=response.status_code)
+
+
+class OpenAdListAPIView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdReadSerializer
+
+    def get_queryset(self):
+        if not is_performer(self.request.user):
+            raise PermissionDenied("فقط پیمانکار می‌تواند لیست آگهی‌های باز را مشاهده کند.")
+        return Ad.objects.filter(status=Ad.Status.OPEN).order_by("-date_added")
 
 
 # =========================
@@ -113,80 +123,99 @@ class AdRequestListCreateAPIView(ListCreateAPIView):
 
 
 class AdRequestRetrieveUpdateAPIView(RetrieveUpdateAPIView):
-    """
-    Single PATCH endpoint handles:
-    - creator approves/rejects -> assigns performer and sets Ad.status=ASSIGNED
-    - assigned performer reports done -> Ad.status=DONE_REPORTED
-    - creator confirms done -> Ad.status=DONE
-    """
     permission_classes = [IsAuthenticated]
-
-    def get_serializer_class(self):
-        if self.request.method in ["PATCH", "PUT"]:
-            return AdRequestUpdateSerializer
-        return AdRequestReadSerializer
 
     def get_object(self):
         ad = get_object_or_404(Ad, pk=self.kwargs["pk"])
-        req = get_object_or_404(AdRequest, pk=self.kwargs["request_pk"], ad=ad)
-        return req
+        return get_object_or_404(AdRequest, pk=self.kwargs["request_pk"], ad=ad)
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return AdRequestReadSerializer
+
+        req = self.get_object()
+        ad = req.ad
+        user = self.request.user
+
+        is_creator = (ad.creator_id == user.id)
+        is_assigned_performer = (ad.performer_id == user.id)
+
+        if is_creator:
+            if ad.status == Ad.Status.DONE_REPORTED:
+                return AdRequestDoneConfirmedSerializer
+            return AdRequestChooseSerializer  # empty body {}
+
+        if is_assigned_performer:
+            return AdRequestDoneReportedSerializer
+
+        return AdRequestReadSerializer
 
     def patch(self, request, *args, **kwargs):
         req = self.get_object()
         ad = req.ad
         user = request.user
 
-        ser = AdRequestUpdateSerializer(data=request.data, partial=True)
-        ser.is_valid(raise_exception=True)
-        data = ser.validated_data
+        is_creator = (ad.creator_id == user.id)
+        is_assigned_performer = (ad.performer_id == user.id)
 
-        # ---- 1) Creator chooses performer by approving/rejecting a request ----
-        if "status" in data:
-            if ad.creator_id != user.id:
-                raise PermissionDenied("فقط ایجادکننده آگهی می‌تواند درخواست را تایید/رد کند.")
-            if ad.status != Ad.Status.OPEN:
-                raise ValidationError("آگهی دیگر قابل تخصیص نیست.")
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        print("data is:", data)
 
-            new_status = data["status"]
-            req.status = new_status
+        # ---- Creator chooses performer (PATCH {}) ----
+        # ---- Creator chooses performer ----
+        if is_creator and ad.status == Ad.Status.OPEN:
+            if data.get("choose") is not True:
+                raise ValidationError({"choose": "برای انتخاب پیمانکار باید choose=true ارسال شود."})
+        
+            if req.status != AdRequest.Status.PENDING:
+                raise ValidationError("این درخواست قابل انتخاب نیست.")
+        
+            req.status = AdRequest.Status.APPROVED
             req.save(update_fields=["status"])
-
-            if new_status == AdRequest.Status.APPROVED:
-                ad.performer = req.performer
-                ad.status = Ad.Status.ASSIGNED
-                ad.save(update_fields=["performer", "status"])
-
-                AdRequest.objects.filter(ad=ad).exclude(id=req.id).update(
-                    status=AdRequest.Status.REJECTED
-                )
-
+        
+            ad.performer = req.performer
+            ad.status = Ad.Status.ASSIGNED
+            ad.save(update_fields=["performer", "status"])
+        
+            AdRequest.objects.filter(ad=ad).exclude(id=req.id).update(
+                status=AdRequest.Status.REJECTED
+            )
+        
             return Response(AdRequestReadSerializer(req).data, status=200)
 
-        # ---- 2) Assigned performer reports done ----
-        if data.get("done_reported") is True:
-            if ad.performer_id != user.id:
-                raise PermissionDenied("فقط پیمانکار تخصیص داده شده می‌تواند پایان کار را اعلام کند.")
+        # ---- Assigned performer reports done ----
+        if is_assigned_performer:
+            if "done_reported" not in data:
+                raise ValidationError({"done_reported": "فقط done_reported مجاز است."})
+            if data["done_reported"] is not True:
+                raise ValidationError({"done_reported": "باید true باشد."})
             if ad.status != Ad.Status.ASSIGNED:
                 raise ValidationError("آگهی باید در وضعیت تخصیص شده باشد.")
+
             ad.status = Ad.Status.DONE_REPORTED
             ad.save(update_fields=["status"])
             return Response({"detail": "پایان کار اعلام شد."}, status=200)
 
-        # ---- 3) Creator confirms done ----
-        if data.get("done_confirmed") is True:
-            if ad.creator_id != user.id:
-                raise PermissionDenied("فقط ایجادکننده آگهی می‌تواند پایان کار را تایید کند.")
+        # ---- Creator confirms done ----
+        if is_creator:
+            if "done_confirmed" not in data:
+                raise ValidationError({"done_confirmed": "فقط done_confirmed مجاز است."})
+            if data["done_confirmed"] is not True:
+                raise ValidationError({"done_confirmed": "باید true باشد."})
             if ad.status != Ad.Status.DONE_REPORTED:
                 raise ValidationError("ابتدا پیمانکار باید پایان کار را اعلام کند.")
+
             ad.status = Ad.Status.DONE
             ad.save(update_fields=["status"])
             return Response({"detail": "پایان کار تایید شد."}, status=200)
 
-        raise ValidationError("هیچ تغییری اعمال نشد.")
+        raise PermissionDenied("شما اجازه انجام این عملیات را ندارید.")
 
 
 # =========================
-# Performer requests list (flat)
+# Performer requests (flat)
 # =========================
 
 class RequestListAPIView(ListAPIView):
@@ -197,11 +226,3 @@ class RequestListAPIView(ListAPIView):
         if not is_performer(self.request.user):
             raise PermissionDenied("شما پیمانکار نیستید.")
         return AdRequest.objects.filter(performer=self.request.user).order_by("-created_at")
-class OpenAdListAPIView(ListAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = AdReadSerializer
-
-    def get_queryset(self):
-        if not is_performer(self.request.user):
-            raise PermissionDenied("فقط پیمانکار می‌تواند لیست آگهی‌های باز را مشاهده کند.")
-        return Ad.objects.filter(status=Ad.Status.OPEN).order_by("-date_added")

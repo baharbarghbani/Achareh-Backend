@@ -2,17 +2,22 @@ from rest_framework import serializers
 from .models import Ad, AdRequest
 
 
+# =========================
+# Ads
+# =========================
+
 class AdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
         fields = "__all__"
-        read_only_fields = ["creator", "date_added", 'status', 'performer']
+        read_only_fields = ["creator", "date_added", "status", "performer"]
 
 
 class AdCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
-        fields = ['title', 'description', 'category']
+        fields = ["title", "description", "category"]
+
 
 class AdReadSerializer(serializers.ModelSerializer):
     creator = serializers.StringRelatedField()
@@ -22,6 +27,7 @@ class AdReadSerializer(serializers.ModelSerializer):
         model = Ad
         fields = "__all__"
 
+
 class AdUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
@@ -30,9 +36,11 @@ class AdUpdateSerializer(serializers.ModelSerializer):
 
 
 class AdRequestCreateSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = AdRequest
         fields = []
+
 
 class AdRequestReadSerializer(serializers.ModelSerializer):
     performer_id = serializers.IntegerField(source="performer.id", read_only=True)
@@ -40,35 +48,38 @@ class AdRequestReadSerializer(serializers.ModelSerializer):
     ad_id = serializers.IntegerField(source="ad.id", read_only=True)
     ad_title = serializers.CharField(source="ad.title", read_only=True)
 
+    done_reported = serializers.SerializerMethodField()
+    done_confirmed = serializers.SerializerMethodField()
+
     class Meta:
         model = AdRequest
-        fields = ["id", "status", "created_at", "performer_id", "performer_username", "ad_id", "ad_title"]
+        fields = [
+            "id",
+            "status",
+            "created_at",
+            "performer_id",
+            "performer_username",
+            "ad_id",
+            "ad_title",
+            "done_reported",
+            "done_confirmed",
+        ]
         read_only_fields = fields
-class AdRequestUpdateSerializer(serializers.Serializer):
-    """
-    One PATCH endpoint supports all transitions without touching Ad.status directly.
 
-    Creator choose performer:
-      {"status": "approved"} or {"status": "rejected"}
+    def get_done_reported(self, obj):
+        return obj.ad.status == Ad.Status.DONE_REPORTED
 
-    Performer report done:
-      {"done_reported": true}
+    def get_done_confirmed(self, obj):
+        return obj.ad.status == Ad.Status.DONE
 
-    Creator confirm done:
-      {"done_confirmed": true}
-    """
-    status = serializers.ChoiceField(
-        choices=[AdRequest.Status.APPROVED, AdRequest.Status.REJECTED],
-        required=False
-    )
-    done_reported = serializers.BooleanField(required=False)
-    done_confirmed = serializers.BooleanField(required=False)
 
-class AdRequestSerializer(serializers.ModelSerializer):
-    ad = serializers.StringRelatedField()
 
-    class Meta:
-        model = AdRequest
-        fields = ['ad', 'status', 'created_at', 'performer']
-        read_only_fields = ["performer", "created_at", "ad", 'status"]']
+class AdRequestChooseSerializer(serializers.Serializer):
+    choose = serializers.BooleanField()
 
+class AdRequestDoneReportedSerializer(serializers.Serializer):
+    done_reported = serializers.BooleanField()
+
+
+class AdRequestDoneConfirmedSerializer(serializers.Serializer):
+    done_confirmed = serializers.BooleanField()
