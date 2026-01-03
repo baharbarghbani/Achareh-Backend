@@ -18,3 +18,7 @@ class Request(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["ad", "performer"], name="unique_request_per_ad_performer")
         ]
+    
+        ordering = ['-created_at']
+        verbose_name = 'درخواست'
+        verbose_name_plural = 'درخواست‌ها'

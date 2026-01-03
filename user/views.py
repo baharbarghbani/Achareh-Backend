@@ -10,21 +10,18 @@ User = get_user_model()
 
 
 class UserRegisterAPIView(CreateAPIView):
-    """
-    POST /api/users/register/
-    Public endpoint to create an account.
-    """
+    queryset = User.objects.all()
+    serializer_class = UserCreateSerializer
+    permission_classes = [AllowAny]
+
+
+class UserLoginAPIView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserCreateSerializer
     permission_classes = [AllowAny]
 
 
 class UserMeAPIView(RetrieveUpdateAPIView):
-    """
-    GET  /api/users/me/
-    PATCH /api/users/me/
-    Logged-in user can see and update their own profile.
-    """
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
@@ -37,10 +34,6 @@ class UserMeAPIView(RetrieveUpdateAPIView):
 
 
 class UserListAPIView(ListAPIView):
-    """
-    GET /api/users/
-    Admin-only: list all users.
-    """
     queryset = User.objects.all().order_by("id")
     serializer_class = UserReadSerializer
     permission_classes = [IsAuthenticated]
@@ -52,10 +45,6 @@ class UserListAPIView(ListAPIView):
 
 
 class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
-    """
-    GET /api/users/<id>/
-    Admin-only: retrieve any user.
-    """
     queryset = User.objects.all()
     serializer_class = UserReadSerializer
     permission_classes = [IsAuthenticated]
@@ -69,6 +58,8 @@ class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can delete users."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
+    
+
 
 
 

@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from user.utils import is_support
 from .serializer import TicketSerializer, TicketMessageSerializer
 from django.shortcuts import get_object_or_404
-from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from .utils import is_ticket_closed, is_ticket_pending
 
 # Create your views here.
 class TicketListCreateAPIView(generics.ListCreateAPIView):
@@ -30,6 +30,29 @@ class TicketRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return TicketMessage.objetcs.filter(user=self.request.user)
+    
+    def update(self, request, *args, **kwargs):
+        ticket = self.get_object()
+        if is_ticket_pending(ticket):
+            raise ValidationError({"detail": "تیکت در وضعیت درحال بررسی است و نمی‌توان آن را ویرایش کرد."})
+        if is_ticket_closed(ticket):
+            raise ValidationError({"detail": "تیکت بسته شده است و نمی‌توان آن را ویرایش کرد."})
+        
+        if ticket.user_id != request.user.id and not is_support(request.user):
+            raise PermissionDenied({"detail": "تیکت برای شما نیست."})
+        return super().update(request, *args, **kwargs)
+    
+    def retrieve(self, request, *args, **kwargs):
+        ticket = self.get_object()
+        if ticket.user_id != request.user.id and not is_support(request.user):
+            raise PermissionDenied({"detail": "تیکت برای شما نیست."})
+        return super().retrieve(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        ticket = self.get_object()
+        if ticket.user_id != request.user.id and not is_support(request.user):
+            raise PermissionDenied({"detail": "تیکت برای شما نیست."})
+        return super().destroy(request, *args, **kwargs)
     
 class TicketMessageListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]

@@ -6,14 +6,13 @@ from .serializer import RequestSerializer
 from ad.models import Ad
 from rest_framework.response import Response
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from user.utils import is_performer
-from .utils import is_approved, is_rejected
-from ad.utils import is_assigned, is_open
+from ad.utils import is_open
+from rest_framework import status
 
 # Create your views here.  
 
-class RequestListCreateDestroyAPIView(generics.ListCreateAPIView, generics.DestroyAPIView):
+class RequestListCreateAPIView(generics.ListCreateAPIView):
     queryset = Request.objects.all()
     serializer_class = RequestSerializer
     permission_classes = [IsAuthenticated]
@@ -25,7 +24,7 @@ class RequestListCreateDestroyAPIView(generics.ListCreateAPIView, generics.Destr
 
         if ad.creator_id == self.request.user.id:
             raise PermissionDenied("شما نمی‌توانید برای آگهی خودتان درخواست ثبت کنید.")
-        if ad.status != is_open(ad):
+        if not is_open(ad):
             raise ValidationError({"ad": "این آگهی قابل درخواست نیست (باید باز باشد)."})
         if Request.objects.filter(ad=ad, performer=self.request.user).exists():
             raise ValidationError({"ad": "شما قبلاً برای این آگهی درخواست ثبت کرده‌اید."})
@@ -37,48 +36,42 @@ class RequestListCreateDestroyAPIView(generics.ListCreateAPIView, generics.Destr
             Q(ad__creator=user) | Q(performer=user)
         ).select_related("ad", "performer").order_by("-created_at")
     
-    def destroy(self, request, *args, **kwargs):
-        if self.ad.performer != request.user:
-            return Response({"detail": "فقط ایجادکننده آگهی می‌تواند وضعیت درخواست را تغییر دهد."}, status=403)
-        
-        self.delete()
-        return Response({"detail": "درخواست شما لغو شد."}, status=200)
     
 
-class RequestRetrieveUpdateAPIView(generics.ListAPIView, generics.UpdateAPIView):
+class RequestRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RequestSerializer
     permission_classes = [IsAuthenticated]
+    queryset = Request.objects.select_related("ad", "performer")
 
-    def get_queryset(self):
-        ad_id = self.kwargs["ad_id"]
-        ad = get_object_or_404(Ad, id=ad_id)
+    def patch(self, request, *args, **kwargs):
+        req_obj = self.get_object()      
+        ad = req_obj.ad                  
 
-        if ad.creator_id != self.request.user.id:
-            raise PermissionDenied("شما اجازه مشاهده درخواست‌های این آگهی را ندارید.")
-
-        return Request.objects.filter(ad=ad).select_related("performer").order_by("-created_at")
-    
-    def update(self, request, *args, **kwargs):
-        if self.request.ad.creator_id != request.user.id:
-            raise PermissionDenied("فقط ایجادکننده آگهی می‌تواند وضعیت درخواست را تغییر دهد.")
-        
-        if self.request.ad.status != is_open(self.request.ad):
+        if ad.status != Ad.Status.OPEN:
             raise ValidationError({"detail": "این آگهی دیگر باز نیست."})
-        
+
         new_status = request.data.get("status")
-        if new_status not in [is_approved(self.request),is_rejected(self.request)]:
-            raise ValidationError({"status": "فقط accepted یا rejected مجاز است."})
-        
-        self.request.status = new_status
-        self.request.save(update_fields=["status"])
+        if new_status not in [Request.Status.APPROVED, Request.Status.REJECTED]:
+            raise ValidationError({"status": "فقط approved یا rejected مجاز است."})
 
-        if new_status == is_approved(self.request):
-            self.request.ad.performer = self.request.performer
-            self.request.ad.status = is_assigned(self.request.ad)
-            self.request.ad.save(update_fields=["performer", "status"])
-            Request.objects.filter(ad=self.request.ad).exclude(id=self.request.id).update(status=Request.Status.REJECTED)
+        req_obj.status = new_status
+        req_obj.save(update_fields=["status"])
 
-        return Response(RequestSerializer(self.request).data, status=200)
+        if new_status == Request.Status.APPROVED:
+            ad.performer = req_obj.performer
+            ad.status = Ad.Status.ASSIGNED
+            ad.save(update_fields=["performer", "status"])
+            Request.objects.filter(ad=ad).exclude(id=req_obj.id).update(status=Request.Status.REJECTED)
 
+        return Response(RequestSerializer(req_obj).data, status=status.HTTP_200_OK)
 
+    def delete(self, request, *args, **kwargs):
+        req_obj = self.get_object()
+        ad = req_obj.ad
+
+        if req_obj.performer_id != request.user.id:
+            raise PermissionDenied("فقط پیمانکار می‌تواند درخواست خودش را حذف کند.")
+
+        req_obj.delete()
+        return Response({"detail": "درخواست حذف شد."}, status=200)
 
