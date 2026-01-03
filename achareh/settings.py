@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     'user',
     'comment',
     'tickets',
-    'request',
     'rest_framework',
     'drf_spectacular',
 
