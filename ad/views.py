@@ -21,12 +21,14 @@ from .serializer import (
     AdRequestReadSerializer,
     AdRequestChooseSerializer,
 )
-from user.utils import is_performer
+from user.utils import is_performer, is_support
 
 class AdListCreateAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if is_support(self.request.user):
+            return Ad.objects.all()
         return Ad.objects.filter(creator=self.request.user)
 
     def get_serializer_class(self):
@@ -75,7 +77,6 @@ class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
                     ad.save(update_fields=["status"])
                     return Response(AdReadSerializer(ad).data, status=200)
 
-                # creator confirms done
                 if is_done_confirm:
                     if ad.creator_id != user.id:
                         raise PermissionDenied("تنها خالق آگهی می‌تواند اتمام کار را تأیید کند.")
@@ -99,6 +100,16 @@ class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
         ad.save(update_fields=list(data.keys()))
 
         return Response(AdReadSerializer(ad).data, status=200)
+    
+    def destroy(self, request, *args, **kwargs):
+        ad = self.get_object()
+        if ad.creator_id != request.user.id:
+            raise PermissionDenied("تنها مالک آگهی می‌تواند آن را حذف کند.")
+        if ad.status == Ad.Status.DONE:
+            raise ValidationError("آگهی‌ای که انجام شده است را نمی‌توان حذف کرد.")
+        ad.status = Ad.Status.CANCELLED
+        ad.save(update_fields=["status"])
+        return Response(status=204)
 
 
 class OpenAdListAPIView(ListAPIView):
@@ -141,7 +152,6 @@ class AdRequestListCreateAPIView(ListCreateAPIView):
         if ad.status != Ad.Status.OPEN:
             raise ValidationError("این آگهی قابل درخواست نیست.")
 
-        # UX-friendly early check; still must guard DB-level uniqueness for concurrency.
         if ad.requests.filter(performer=self.request.user).exists():
             raise ValidationError("قبلاً درخواست داده‌اید.")
 
@@ -152,10 +162,7 @@ class AdRequestListCreateAPIView(ListCreateAPIView):
 
 
 class AdRequestRetrieveUpdateAPIView(RetrieveUpdateAPIView):
-    """
-    Keep this endpoint *only* for choosing performer:
-    PATCH /ads/<ad_id>/requests/<request_id>/ {"choose": true}
-    """
+
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):

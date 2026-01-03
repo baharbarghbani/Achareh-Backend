@@ -19,5 +19,5 @@ urlpatterns = [
     path("ads/<int:pk>/requests/<int:request_pk>/", AdRequestRetrieveUpdateAPIView.as_view()),
 
     # Performer own requests
-    path("requests/", RequestListAPIView.as_view()),
+    path("ads/requests/", RequestListAPIView.as_view()),
 ]
