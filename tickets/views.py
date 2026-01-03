@@ -4,14 +4,14 @@ from .models import Ticket, TicketMessage
 from .serializer import TicketSerializer
 from rest_framework.permissions import IsAuthenticated
 from user.utils import is_support
-from .serializer import TicketSerializer, TicketMessageSerializer
+from .serializer import TicketSerializer, TicketMessageSerializer, TicketCreateSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .utils import is_ticket_closed, is_ticket_pending
 
 # Create your views here.
 class TicketListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = TicketSerializer
+    serializer_class = TicketCreateSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -61,8 +61,8 @@ class TicketMessageListCreateAPIView(generics.ListCreateAPIView):
     def get_ticket(self):
         ticket = get_object_or_404(Ticket, pk=self.kwargs["ticket_id"])
 
-        if not is_support(self.request.user) and ticket.user_id != self.request.user.id:
-            raise PermissionDenied("Not allowed.")
+        if not is_support(self.request.user):
+            raise PermissionDenied({"detail": "شما پشتیبان نیستید."})
         return ticket
 
     def get_queryset(self):
@@ -72,8 +72,8 @@ class TicketMessageListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         ticket = self.get_ticket()
 
-        if ticket.status == Ticket.Status.CLOSED and not is_support(self.request.user):
-            raise ValidationError({"detail": "Ticket is closed."})
+        if is_ticket_closed(ticket) and not is_support(self.request.user):
+            raise ValidationError({"detail": "تیکت بسته شده است و نمی‌توانید پیام جدید اضافه کنید."})
 
         serializer.save(ticket=ticket, sender=self.request.user)
 

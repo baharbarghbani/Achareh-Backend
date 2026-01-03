@@ -6,6 +6,7 @@ class Ad(models.Model):
     class Status(models.TextChoices):
         OPEN = 'open', 'باز'
         ASSIGNED = 'assigned', 'تخصیص شده'
+        DONE_REPORTED = 'done_reported', 'اعلام پایان کار'
         DONE = 'done', 'انجام شده'
         CANCELLED = 'cancelled', 'لغو شده'
 

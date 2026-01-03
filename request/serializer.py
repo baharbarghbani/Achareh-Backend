@@ -11,4 +11,26 @@ class RequestSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         ]
-        read_only_fields = ["performer", "created_at", "status"]
+        read_only_fields = ["id", "performer", "created_at", "status"]
+
+class RequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Request
+        fields = ["ad"]
+        read_only_fields = ["id"]
+
+class RequestReadSerializer(serializers.ModelSerializer):
+    performer = serializers.StringRelatedField()
+    ad = serializers.StringRelatedField()
+
+    class Meta:
+        model = Request
+        fields = [
+            "id",
+            "performer",
+            "ad",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "performer", "created_at", "status"]
+

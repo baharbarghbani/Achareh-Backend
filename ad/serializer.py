@@ -20,3 +20,9 @@ class AdReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
         fields = "__all__"
+
+class AdUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ad
+        fields = ['title', 'description', 'category']
+        read_only_fields = ['creator', 'date_added', 'status', 'performer']

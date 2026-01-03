@@ -22,3 +22,6 @@ class Request(models.Model):
         ordering = ['-created_at']
         verbose_name = 'درخواست'
         verbose_name_plural = 'درخواست‌ها'
+
+    def __str__(self):
+        return f'درخواست {self.id} برای آگهی {self.ad.title} توسط {self.performer.username} - {self.get_status_display()}'  

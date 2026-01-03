@@ -3,22 +3,52 @@ from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView, ListAP
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-
-from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer
+from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer
 
 User = get_user_model()
 
+
+from rest_framework.authtoken.models import Token
 
 class UserRegisterAPIView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserCreateSerializer
     permission_classes = [AllowAny]
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response(
+            {"token": token.key, "user": UserReadSerializer(user).data},
+            status=status.HTTP_201_CREATED
+        )
+
+
+
 
 class UserLoginAPIView(CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserCreateSerializer
+    serializer_class = LoginSerializer
     permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data["user"]
+        access = serializer.validated_data["access"]
+        refresh = serializer.validated_data["refresh"]
+
+        return Response({
+            "access": access,
+            "refresh": refresh,
+            "user": UserReadSerializer(user).data,
+        }, status=status.HTTP_200_OK)
+
+
 
 
 class UserMeAPIView(RetrieveUpdateAPIView):
