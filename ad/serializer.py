@@ -1,23 +1,44 @@
 from rest_framework import serializers
 from .models import Ad, AdRequest
 
-
-# =========================
-# Ads
-# =========================
-
-class AdSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ad
-        fields = "__all__"
-        read_only_fields = ["creator", "date_added", "status", "performer"]
-
-
 class AdCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
         fields = ["title", "description", "category"]
 
+class AdPatchSerializer(serializers.ModelSerializer):
+
+    done_reported = serializers.BooleanField(required=False)
+    done_confirmed = serializers.BooleanField(required=False)
+
+    class Meta:
+        model = Ad
+        fields = [
+            "title",
+            "description",
+            "category",
+            "execution_time",
+            "execution_location",
+            "done_reported",
+            "done_confirmed",
+        ]
+
+    def validate(self, attrs):
+        done_reported = "done_reported" in attrs
+        done_confirmed = "done_confirmed" in attrs
+
+        if done_reported and done_confirmed:
+            raise serializers.ValidationError(
+                "Send only one of done_reported or done_confirmed."
+            )
+
+        if done_reported and attrs["done_reported"] is not True:
+            raise serializers.ValidationError({"done_reported": "Must be true."})
+
+        if done_confirmed and attrs["done_confirmed"] is not True:
+            raise serializers.ValidationError({"done_confirmed": "Must be true."})
+
+        return attrs
 
 class AdReadSerializer(serializers.ModelSerializer):
     creator = serializers.StringRelatedField()
@@ -35,8 +56,16 @@ class AdUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "performer", "creator", "date_added"]
 
 
-class AdRequestCreateSerializer(serializers.ModelSerializer):
+class AdDoneReportedSerializer(serializers.Serializer):
+    done_reported = serializers.BooleanField()
 
+
+class AdDoneConfirmedSerializer(serializers.Serializer):
+    done_confirmed = serializers.BooleanField()
+
+
+
+class AdRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AdRequest
         fields = []
@@ -73,13 +102,5 @@ class AdRequestReadSerializer(serializers.ModelSerializer):
         return obj.ad.status == Ad.Status.DONE
 
 
-
 class AdRequestChooseSerializer(serializers.Serializer):
     choose = serializers.BooleanField()
-
-class AdRequestDoneReportedSerializer(serializers.Serializer):
-    done_reported = serializers.BooleanField()
-
-
-class AdRequestDoneConfirmedSerializer(serializers.Serializer):
-    done_confirmed = serializers.BooleanField()
