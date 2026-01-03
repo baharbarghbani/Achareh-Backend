@@ -30,7 +30,7 @@ class User(AbstractUser):
         related_name='users',
         verbose_name='نقش‌ها',
     )
-    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='شماره تماس')
+    phone_number = models.CharField(max_length=20, null=False)
 
     class Meta:
         verbose_name = 'کاربر'

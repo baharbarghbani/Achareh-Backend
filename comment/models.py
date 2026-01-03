@@ -10,8 +10,8 @@ class Comment(models.Model):
         FOUR = 4, '4'
         FIVE = 5, '5'
 
-    content = models.TextField(verbose_name='متن نظر')
-    rating = models.IntegerField(choices=Rating.choices, verbose_name='امتیاز')
+    content = models.TextField(verbose_name='متن نظر', null=True)
+    rating = models.IntegerField(choices=Rating.choices, verbose_name='امتیاز', null=False)
 
     ad = models.ForeignKey(
         'ad.Ad',

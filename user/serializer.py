@@ -13,7 +13,7 @@ class UserReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'roles', 'first_name', 'last_name']
+        fields = ['id', 'username', 'email', 'roles', 'first_name', 'last_name', 'phone_number']
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -21,7 +21,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'first_name', 'last_name']
+        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'phone_number']
 
     def validate_password(self, value):
         validate_password(value)
@@ -34,5 +34,5 @@ class UserCreateSerializer(serializers.ModelSerializer):
 class UserUpdateDeleteSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name']
+        fields = ['username', 'email', 'first_name', 'last_name', 'phone_number']
 
