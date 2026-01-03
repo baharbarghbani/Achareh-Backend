@@ -4,15 +4,12 @@ from django.contrib.auth.models import AbstractUser
 
 class Role(models.Model):
     class Names(models.TextChoices):
-        CUSTOMER = 'مشتری', 'Customer'
-        PERFORMER = 'پیمانکار', 'Performer'
-        SUPPORT = 'پشتیبانی', 'Support'
-        ADMIN = 'مدیر', 'Admin'
+        CUSTOMER = "customer", "مشتری"
+        PERFORMER = "performer", "پیمانکار"
+        SUPPORT = "support", "پشتیبانی"
+        ADMIN = "admin", "مدیر"
 
     name = models.CharField(max_length=50, unique=True, choices=Names.choices)
-
-
-    name = models.CharField(max_length=50, unique=True, verbose_name='نام نقش')
 
     class Meta:
         ordering = ['name']

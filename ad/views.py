@@ -6,17 +6,21 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from .models import Ad
-from .serializer import AdSerializer
+from .serializer import AdSerializer, AdCreateSerializer, AdReadSerializer
 from user.models import User
 from rest_framework import status
 
 
 class AdListCreateAPIView(ListCreateAPIView):
-    serializer_class = AdSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Ad.objects.filter(creator=self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AdCreateSerializer
+        return AdReadSerializer
 
     def perform_create(self, serializer):
         serializer.save(creator=self.request.user)

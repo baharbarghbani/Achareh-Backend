@@ -51,7 +51,7 @@ class UserListAPIView(ListAPIView):
         return super().list(request, *args, **kwargs)
 
 
-class UserDetailAPIView(RetrieveAPIView):
+class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
     """
     GET /api/users/<id>/
     Admin-only: retrieve any user.
@@ -64,17 +64,12 @@ class UserDetailAPIView(RetrieveAPIView):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can view other users."}, status=status.HTTP_403_FORBIDDEN)
         return super().retrieve(request, *args, **kwargs)
-
-
-class UserDeleteAPIView(DestroyAPIView):
-    """
-    DELETE /api/users/<id>/
-    Admin-only: delete any user.
-    """
-    queryset = User.objects.all()
-    permission_classes = [IsAuthenticated]
-
+    
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can delete users."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
+
+
+
+

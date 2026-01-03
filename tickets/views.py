@@ -7,6 +7,7 @@ from user.utils import is_support
 from .serializer import TicketSerializer, TicketMessageSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 # Create your views here.
 class TicketListCreateAPIView(generics.ListCreateAPIView):
@@ -30,29 +31,28 @@ class TicketRetrieveUpdateDeleteAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return TicketMessage.objetcs.filter(user=self.request.user)
     
-class TicketReplyAPIView(generics.ListCreateAPIView):
-
-    serializer_class = TicketMessageSerializer
+class TicketMessageListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = TicketMessageSerializer
+
+    def get_ticket(self):
+        ticket = get_object_or_404(Ticket, pk=self.kwargs["ticket_id"])
+
+        if not is_support(self.request.user) and ticket.user_id != self.request.user.id:
+            raise PermissionDenied("Not allowed.")
+        return ticket
 
     def get_queryset(self):
-        ticket = get_object_or_404(Ticket, pk=self.kwargs["pk"], user=self.request.user)
-        return TicketMessage.objects.filter(ticket=ticket)
+        ticket = self.get_ticket()
+        return TicketMessage.objects.filter(ticket=ticket).order_by("created_at")
 
-    def create(self, request, *args, **kwargs):
-        ticket = get_object_or_404(Ticket, pk=kwargs["pk"], user=request.user)
+    def perform_create(self, serializer):
+        ticket = self.get_ticket()
 
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if ticket.status == Ticket.Status.CLOSED and not is_support(self.request.user):
+            raise ValidationError({"detail": "Ticket is closed."})
 
-        msg = TicketMessage.objects.create(
-            ticket=ticket,
-            sender=request.user,
-            body=serializer.validated_data["body"]
-        )
-
-        return Response(TicketMessageSerializer(msg).data, status=status.HTTP_201_CREATED)
-
+        serializer.save(ticket=ticket, sender=self.request.user)
 
 
 

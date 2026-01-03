@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from ad import Ad
+from ad.models import Ad
 
 # Create your models here.
 class Request(models.Model):
