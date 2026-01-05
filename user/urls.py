@@ -4,13 +4,15 @@ from .views import (
     UserLoginAPIView,
     UserMeAPIView,
     UserListAPIView,
-    UserRetrieveDestroyAPIView
+    UserRetrieveDestroyAPIView,
+    ProfileAPIView
 )
 
 urlpatterns = [
     path("users/register/", UserRegisterAPIView.as_view(), name="user-register"),
     path("users/login/", UserLoginAPIView.as_view(), name="user-login"),
     path("users/me/", UserMeAPIView.as_view(), name="user-me"),
+    path("users/profile/", ProfileAPIView.as_view(), name="user-profile"),
     path("users/", UserListAPIView.as_view(), name="user-list"),
     path("users/<int:pk>/", UserRetrieveDestroyAPIView.as_view(), name="user-detail"),
 ]

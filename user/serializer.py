@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from django.db.models import Q
 from rest_framework_simplejwt.tokens import RefreshToken
+from .models import Profile
 
 
 User = get_user_model()
@@ -66,4 +67,13 @@ class LoginSerializer(serializers.Serializer):
             "access": str(refresh.access_token),
             "user": user,
         }
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='user.username', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    class Meta:
+        model = Profile
+        fields = ['name', 'last_name', 'average_rating', 'ads_count', 'ads', 'comments']
+        read_only_fields = ['name', 'last_name', 'average_rating', 'ads_count', 'ads', 'comments']
 

@@ -6,6 +6,7 @@ from .views import (
     AdRequestListCreateAPIView,
     AdRequestRetrieveUpdateAPIView,
     RequestListAPIView,
+    AdRatingAPIView,
 )
 
 urlpatterns = [
@@ -20,4 +21,7 @@ urlpatterns = [
 
     # Performer own requests
     path("ads/requests/", RequestListAPIView.as_view()),
+
+    # Rating endpoint
+    path("ads/<int:pk>/rate/", AdRatingAPIView.as_view()),
 ]

@@ -3,7 +3,9 @@ from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView, ListAP
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer
+from django.shortcuts import get_object_or_404
+from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, ProfileSerializer
+from .models import Profile
 
 User = get_user_model()
 
@@ -88,8 +90,16 @@ class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can delete users."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
-    
 
+
+class ProfileAPIView(RetrieveAPIView):
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Get or create profile for the current user
+        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        return profile
 
 
 

@@ -7,10 +7,11 @@ from rest_framework.generics import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.views import APIView
 
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Avg
 
 from .models import Ad, AdRequest
 from .serializer import (
@@ -20,7 +21,10 @@ from .serializer import (
     AdRequestCreateSerializer,
     AdRequestReadSerializer,
     AdRequestChooseSerializer,
+    AdRatingSerializer,
 )
+from comment.models import Comment
+from user.models import Profile
 from user.utils import is_performer, is_support
 
 class AdListCreateAPIView(ListCreateAPIView):
@@ -82,7 +86,14 @@ class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
                         raise PermissionDenied("تنها خالق آگهی می‌تواند اتمام کار را تأیید کند.")
                     if ad.status != Ad.Status.DONE_REPORTED:
                         raise ValidationError("پیمانکار هنوز اتمام کار را اعلام نکرده است.")
-
+                    performer = ad.performer
+                    performer.ads_count += 1
+                    performer.ads.add(ad)
+                    performer.save()
+                    owner = ad.creator
+                    owner.ads_count += 1
+                    owner.ads.add(ad)
+                    owner.save()
                     ad.status = Ad.Status.DONE
                     ad.save(update_fields=["status"])
                     return Response(AdReadSerializer(ad).data, status=200)
@@ -177,7 +188,6 @@ class AdRequestRetrieveUpdateAPIView(RetrieveUpdateAPIView):
             raise ValidationError({"choose": "برای انتخاب پیمانکار باید choose=true ارسال شود."})
 
         with transaction.atomic():
-            # Lock the Ad first to serialize selection.
             ad = Ad.objects.select_for_update().get(pk=self.kwargs["pk"])
 
             if ad.creator_id != user.id:
@@ -187,7 +197,6 @@ class AdRequestRetrieveUpdateAPIView(RetrieveUpdateAPIView):
             if ad.performer_id is not None:
                 raise ValidationError("برای این آگهی قبلاً انجام‌دهنده انتخاب شده است.")
 
-            # Lock the chosen request row too.
             req = (
                 AdRequest.objects.select_for_update()
                 .select_related("performer", "ad")
@@ -219,3 +228,48 @@ class RequestListAPIView(ListAPIView):
         if not is_performer(self.request.user):
             raise PermissionDenied("شما پیمانکار نیستید.")
         return AdRequest.objects.filter(performer=self.request.user).order_by("-created_at")
+
+
+class AdRatingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = AdRatingSerializer
+        ad = get_object_or_404(Ad, pk=kwargs["pk"])
+
+        if ad.creator_id != request.user.id:
+            raise PermissionDenied("تنها خالق آگهی می‌تواند امتیاز دهد.")
+
+        if ad.status != Ad.Status.DONE:
+            raise ValidationError("فقط می‌توان برای آگهی‌های انجام شده امتیاز داد.")
+
+        if hasattr(ad, 'rating'):
+            raise ValidationError("این آگهی قبلاً امتیاز داده شده است.")
+
+        serializer.is_valid(raise_exception=True)
+
+        rating = serializer.validated_data['rating']
+        content = serializer.validated_data.get('content', '')
+
+        comment = Comment.objects.create(
+            content=content,
+            rating=rating,
+            ad=ad,
+            user=request.user,
+            performer=ad.performer
+        )
+
+        if ad.performer:
+            performer_profile, created = Profile.objects.get_or_create(user=ad.performer)
+            performer_profile.ads_count += 1
+            performer_profile.ads.add(ad)
+            performer_profile.comments.add(comment)
+
+            performer_comments = Comment.objects.filter(performer=ad.performer)
+
+            total_rating = sum([c.rating for c in performer_comments])
+            performer_profile.average_rating = total_rating / performer_comments.count() if performer_comments.count() > 0 else 0.0
+
+            performer_profile.save()
+
+        return Response({"message": "امتیاز با موفقیت ثبت شد.", "comment_id": comment.id}, status=201)

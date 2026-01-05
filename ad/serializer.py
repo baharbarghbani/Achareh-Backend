@@ -14,11 +14,6 @@ class AdPatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ad
         fields = [
-            "title",
-            "description",
-            "category",
-            "execution_time",
-            "execution_location",
             "done_reported",
             "done_confirmed",
         ]
@@ -54,15 +49,6 @@ class AdUpdateSerializer(serializers.ModelSerializer):
         model = Ad
         fields = ["title", "description", "category", "execution_time", "execution_location"]
         read_only_fields = ["status", "performer", "creator", "date_added"]
-
-
-class AdDoneReportedSerializer(serializers.Serializer):
-    done_reported = serializers.BooleanField()
-
-
-class AdDoneConfirmedSerializer(serializers.Serializer):
-    done_confirmed = serializers.BooleanField()
-
 
 
 class AdRequestCreateSerializer(serializers.ModelSerializer):
@@ -104,3 +90,8 @@ class AdRequestReadSerializer(serializers.ModelSerializer):
 
 class AdRequestChooseSerializer(serializers.Serializer):
     choose = serializers.BooleanField()
+
+
+class AdRatingSerializer(serializers.ModelSerializer):
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    content = serializers.CharField(required=False, allow_blank=True)

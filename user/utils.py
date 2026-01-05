@@ -9,5 +9,5 @@ def is_performer(user):
         user.is_superuser or user.roles.filter(name=Role.Names.PERFORMER).exists()
     )
 
-
+  
 
