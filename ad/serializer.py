@@ -95,3 +95,6 @@ class AdRequestChooseSerializer(serializers.Serializer):
 class AdRatingSerializer(serializers.ModelSerializer):
     rating = serializers.IntegerField(min_value=1, max_value=5)
     content = serializers.CharField(required=False, allow_blank=True)
+    class Meta:
+        model = Ad
+        fields = ["rating", "content"]

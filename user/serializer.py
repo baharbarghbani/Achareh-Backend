@@ -69,11 +69,17 @@ class LoginSerializer(serializers.Serializer):
         }
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class PerformerProfileSerializer(serializers.ModelSerializer):
+    completed_ads = serializers.IntegerField(read_only=True)
+    class Meta:
+        model = Profile
+        fields = ['id', 'average_rating', 'completed_ads', 'comments']
+        read_only_fields = ['average_rating', 'completed_ads', 'comments']
+
+class CustomerProfileSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.username', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     class Meta:
         model = Profile
-        fields = ['name', 'last_name', 'average_rating', 'ads_count', 'ads', 'comments']
-        read_only_fields = ['name', 'last_name', 'average_rating', 'ads_count', 'ads', 'comments']
-
+        fields = ['name', 'last_name', 'ads', 'comments']
+        read_only_fields = ['name', 'last_name', 'ads', 'comments']

@@ -1,11 +1,14 @@
 from django.contrib.auth import get_user_model
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView, ListAPIView, RetrieveAPIView, DestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from .permissions import IsPerformer, IsOnlyCustomer
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
-from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, ProfileSerializer
+from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, PerformerProfileSerializer, CustomerProfileSerializer
 from .models import Profile
+from ad.models import Ad
+from django.db import models
 
 User = get_user_model()
 
@@ -85,21 +88,40 @@ class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can view other users."}, status=status.HTTP_403_FORBIDDEN)
         return super().retrieve(request, *args, **kwargs)
-    
+
     def destroy(self, request, *args, **kwargs):
         if not request.user.is_superuser:
             return Response({"detail": "Only admin can delete users."}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
 
-class ProfileAPIView(RetrieveAPIView):
-    serializer_class = ProfileSerializer
-    permission_classes = [IsAuthenticated]
+class PerformerProfileAPIView(RetrieveAPIView):
+    serializer_class = PerformerProfileSerializer
+    permission_classes = [IsAuthenticated, IsPerformer]
 
     def get_object(self):
-        # Get or create profile for the current user
-        profile, created = Profile.objects.get_or_create(user=self.request.user)
+        profile = Profile.objects.filter(pk=self.kwargs["pk"]).annotate(
+            completed_ads=models.Count(
+                'user__ads_performed',
+                filter=models.Q(user__ads_performed__status=Ad.Status.DONE),
+                distinct=True
+            )
+        ).first()
+
+        if profile is None:
+            from django.http import Http404
+            raise Http404("Profile not found")
+
         return profile
+    
+class CustomerProfileAPIView(RetrieveAPIView):
+    serializer_class = CustomerProfileSerializer
+    permission_classes = [IsAuthenticated, IsOnlyCustomer]
+
+    def get_object(self):
+        profile = Profile.objects.filter(pk=self.kwargs["pk"])
+        return profile
+
 
 
 

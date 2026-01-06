@@ -3,8 +3,10 @@ from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
     ListAPIView,
     RetrieveUpdateAPIView,
+    CreateAPIView,
 )
 from rest_framework.permissions import IsAuthenticated
+from user.permissions import IsAdOwner, IsAdPerformer
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.views import APIView
@@ -87,13 +89,13 @@ class AdRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
                     if ad.status != Ad.Status.DONE_REPORTED:
                         raise ValidationError("پیمانکار هنوز اتمام کار را اعلام نکرده است.")
                     performer = ad.performer
-                    performer.ads_count += 1
-                    performer.ads.add(ad)
-                    performer.save()
+                    performer_profile = performer.profile
+                    performer_profile.ads.add(ad)
+                    performer_profile.save()
                     owner = ad.creator
-                    owner.ads_count += 1
-                    owner.ads.add(ad)
-                    owner.save()
+                    owner_profile = owner.profile
+                    owner_profile.ads.add(ad)
+                    owner_profile.save()
                     ad.status = Ad.Status.DONE
                     ad.save(update_fields=["status"])
                     return Response(AdReadSerializer(ad).data, status=200)
@@ -230,11 +232,13 @@ class RequestListAPIView(ListAPIView):
         return AdRequest.objects.filter(performer=self.request.user).order_by("-created_at")
 
 
-class AdRatingAPIView(APIView):
+class AdRatingAPIView(CreateAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = AdRatingSerializer
+
+
 
     def post(self, request, *args, **kwargs):
-        serializer = AdRatingSerializer
         ad = get_object_or_404(Ad, pk=kwargs["pk"])
 
         if ad.creator_id != request.user.id:
@@ -245,7 +249,7 @@ class AdRatingAPIView(APIView):
 
         if hasattr(ad, 'rating'):
             raise ValidationError("این آگهی قبلاً امتیاز داده شده است.")
-
+        serializer = AdRatingSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         rating = serializer.validated_data['rating']
@@ -261,7 +265,6 @@ class AdRatingAPIView(APIView):
 
         if ad.performer:
             performer_profile, created = Profile.objects.get_or_create(user=ad.performer)
-            performer_profile.ads_count += 1
             performer_profile.ads.add(ad)
             performer_profile.comments.add(comment)
 
