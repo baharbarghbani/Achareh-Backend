@@ -79,7 +79,20 @@ class PerformerProfileSerializer(serializers.ModelSerializer):
 class CustomerProfileSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.username', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
+    ads = serializers.SerializerMethodField()
+    comments = serializers.SerializerMethodField()
+
     class Meta:
         model = Profile
         fields = ['name', 'last_name', 'ads', 'comments']
-        read_only_fields = ['name', 'last_name', 'ads', 'comments']
+        read_only_fields = ['name', 'last_name']
+
+    def get_ads(self, obj):
+        from ad.serializer import AdReadSerializer
+        ads = obj.user.ads_created.all()  # Assuming customer creates ads
+        return AdReadSerializer(ads, many=True, context=self.context).data
+
+    def get_comments(self, obj):
+        from comment.serializer import CommentListSerializer
+        comments = obj.user.comments_written.all()
+        return CommentListSerializer(comments, many=True, context=self.context).data

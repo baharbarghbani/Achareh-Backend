@@ -17,7 +17,7 @@ class Comment(models.Model):
         'ad.Ad',
         on_delete=models.CASCADE,
         related_name='comments',
-        verbose_name='آگهی'
+        verbose_name='آگهی',
     )
 
     user = models.ForeignKey(
@@ -25,13 +25,13 @@ class Comment(models.Model):
         on_delete=models.CASCADE,
         related_name='comments_written',
         verbose_name='کاربر'
-    )
+    ) 
 
     performer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='comments_received',
-        verbose_name='انجام‌دهنده'
+        verbose_name='پیمانکار'
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')

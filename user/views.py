@@ -5,8 +5,9 @@ from .permissions import IsPerformer, IsCustomer
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.db.models import Avg, Count
 from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, PerformerProfileSerializer, CustomerProfileSerializer
-from .models import Profile
+from .models import Profile, Role
 from ad.models import Ad
 from django.db import models
 from .utils import is_performer
@@ -125,16 +126,50 @@ class PerformerProfileAPIView(RetrieveAPIView):
             raise Http404("Profile not found")
 
         return profile
+    
 class CustomerProfileAPIView(RetrieveAPIView):
     serializer_class = CustomerProfileSerializer
     permission_classes = [IsAuthenticated, IsCustomer]
-    lookup_url_kwarg = "user_id"
-
-    def get_queryset(self):
-        return Profile.objects.select_related("user")
 
     def get_object(self):
-        user_id = self.kwargs[self.lookup_url_kwarg]
-        return get_object_or_404(self.get_queryset(), user_id=user_id)
+        user = self.request.user
+        profile = get_object_or_404(Profile, user=user)
+        return profile
 
 
+class CustomerFilterSortAPIView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserReadSerializer
+
+    def get_queryset(self):
+        customer_role = Role.objects.get(name=Role.Names.CUSTOMER)
+        customers = User.objects.filter(roles=customer_role)
+
+        customers = customers.annotate(
+            avg_rating=Avg('profile__average_rating'),
+            comment_count=Count('profile__comments')
+        )
+
+        min_rating = self.request.query_params.get('min_rating')
+        max_rating = self.request.query_params.get('max_rating')
+        min_comments = self.request.query_params.get('min_comments')
+        max_comments = self.request.query_params.get('max_comments')
+
+        if min_rating:
+            customers = customers.filter(avg_rating__gte=min_rating)
+        if max_rating:
+            customers = customers.filter(avg_rating__lte=max_rating)
+        if min_comments:
+            customers = customers.filter(comment_count__gte=min_comments)
+        if max_comments:
+            customers = customers.filter(comment_count__lte=max_comments)
+
+        sort_by = self.request.query_params.get('sort_by', 'avg_rating')  # Default sort by rating
+        order = self.request.query_params.get('order', 'desc')  # Default descending
+
+        if order == 'asc':
+            customers = customers.order_by(sort_by)
+        else:
+            customers = customers.order_by(f'-{sort_by}')
+
+        return customers

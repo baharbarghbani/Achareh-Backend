@@ -19,12 +19,11 @@ from .serializer import (
     AdUpdateSerializer,
     AdRequestCreateSerializer,
     AdRequestReadSerializer,
-    AdRatingSerializer,
 )
 from comment.models import Comment
 from user.models import Profile
 from user.utils import is_performer, is_support
-from .services import choose_ad_request, report_ad_done, confirm_ad_done 
+from .services import choose_ad_request, report_ad_done, confirm_ad_done
 
 class AdListCreateAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -143,6 +142,7 @@ class AdRequestListCreateAPIView(ListCreateAPIView):
 
 class AdRequestChooseAPIView(APIView):
     permission_classes = [IsAuthenticated, IsAdOwner]
+    serializer_class = AdRequestReadSerializer
 
     def post(self, request, *args, **kwargs):
         req = choose_ad_request(
@@ -155,6 +155,7 @@ class AdRequestChooseAPIView(APIView):
 
 class AdRequestDoneReportAPIView(APIView):
     permission_classes = [IsAuthenticated, IsAdPerformer]
+    serializer_class = AdReadSerializer
 
     def post(self, request, *args, **kwargs):
         ad = report_ad_done(
@@ -165,6 +166,7 @@ class AdRequestDoneReportAPIView(APIView):
 
 class AdRequestDoneConfirmAPIView(APIView):
     permission_classes = [IsAuthenticated, IsAdOwner]
+    serializer_class = AdReadSerializer
 
     def post(self, request, *args, **kwargs):
         ad = confirm_ad_done(
@@ -232,46 +234,3 @@ class RequestListAPIView(ListAPIView):
         return AdRequest.objects.filter(performer=self.request.user).order_by("-created_at")
 
 
-class AdRatingAPIView(CreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = AdRatingSerializer
-
-    def post(self, request, *args, **kwargs):
-        ad = get_object_or_404(Ad, pk=kwargs["pk"])
-
-        if ad.creator_id != request.user.id:
-            raise PermissionDenied("تنها خالق آگهی می‌تواند امتیاز دهد.")
-
-        if ad.status != Ad.Status.DONE:
-            raise ValidationError("فقط می‌توان برای آگهی‌های انجام شده امتیاز داد.")
-
-        if hasattr(ad, 'rating'):
-            raise ValidationError("این آگهی قبلاً امتیاز داده شده است.")
-        serializer = AdRatingSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        rating = serializer.validated_data['rating']
-        content = serializer.validated_data.get('content', '')
-
-        comment = Comment.objects.create(
-            content=content,
-            rating=rating,
-            ad=ad,
-            user=request.user,
-            performer=ad.performer
-        )
-
-        from .utils import calculate_rating
-        if ad.performer:
-            performer_profile, created = Profile.objects.get_or_create(user=ad.performer)
-            performer_profile.ads.add(ad)
-            performer_profile.comments.add(comment)
-
-            performer_comments = Comment.objects.filter(performer=ad.performer)
-            ratings = [c.rating for c in performer_comments]
-            comment_counts = performer_comments.count()
-            performer_profile.average_rating = calculate_rating(ratings, comment_counts)
-
-            performer_profile.save()
-
-        return Response({"message": "امتیاز با موفقیت ثبت شد.", "comment_id": comment.id}, status=201)
