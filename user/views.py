@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView, ListAPIView, RetrieveAPIView, DestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .permissions import IsPerformer, IsOnlyCustomer
+from .permissions import IsPerformer, IsCustomer
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -9,6 +9,9 @@ from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDele
 from .models import Profile
 from ad.models import Ad
 from django.db import models
+from .utils import is_performer
+from rest_framework.exceptions import PermissionDenied
+
 
 User = get_user_model()
 
@@ -25,7 +28,7 @@ class UserRegisterAPIView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        token, _ = Token.objects.get_or_create(user=user)
+        token = Token.objects.create(user=user)
 
         return Response(
             {"token": token.key, "user": UserReadSerializer(user).data},
@@ -97,10 +100,19 @@ class UserRetrieveDestroyAPIView(RetrieveAPIView, DestroyAPIView):
 
 class PerformerProfileAPIView(RetrieveAPIView):
     serializer_class = PerformerProfileSerializer
-    permission_classes = [IsAuthenticated, IsPerformer]
+    permission_classes = [IsAuthenticated]
+    lookup_url_kwarg = "user_id"
+
+    def get_queryset(self):
+        return Profile.objects.select_related("user")
 
     def get_object(self):
-        profile = Profile.objects.filter(pk=self.kwargs["pk"]).annotate(
+        user_id = self.kwargs[self.lookup_url_kwarg]
+        target_user = get_object_or_404(User, id=user_id)
+        if not is_performer(target_user):
+            raise PermissionDenied("کاربر خواسته شده پیمانکار نیست.")
+        profile = get_object_or_404(self.get_queryset(), user_id=self.kwargs[self.lookup_url_kwarg])
+        profile = profile.annotate(
             completed_ads=models.Count(
                 'user__ads_performed',
                 filter=models.Q(user__ads_performed__status=Ad.Status.DONE),
@@ -113,16 +125,16 @@ class PerformerProfileAPIView(RetrieveAPIView):
             raise Http404("Profile not found")
 
         return profile
-    
 class CustomerProfileAPIView(RetrieveAPIView):
     serializer_class = CustomerProfileSerializer
-    permission_classes = [IsAuthenticated, IsOnlyCustomer]
+    permission_classes = [IsAuthenticated, IsCustomer]
+    lookup_url_kwarg = "user_id"
+
+    def get_queryset(self):
+        return Profile.objects.select_related("user")
 
     def get_object(self):
-        profile = Profile.objects.filter(pk=self.kwargs["pk"])
-        return profile
-
-
-
+        user_id = self.kwargs[self.lookup_url_kwarg]
+        return get_object_or_404(self.get_queryset(), user_id=user_id)
 
 

@@ -30,12 +30,14 @@ class IsSupportUser(permissions.BasePermission):
     
 class IsCustomer(permissions.BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.roles.filter(name='customer').exists())
+        result = bool(request.user and request.user.is_authenticated and request.user.roles.filter(name='customer').exists())
+        return result
+    
     
 
-class IsOnlyCustomer(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.roles.filter(name='customer').exists() and not request.user.roles.filter(name='performer').exists())
+# class IsOnlyCustomer(permissions.BasePermission):
+#     def has_permission(self, request, view):
+#         return bool(request.user and request.user.is_authenticated and request.user.roles.filter(name='customer').exists() and not request.user.roles.filter(name='performer').exists())
 
 
 

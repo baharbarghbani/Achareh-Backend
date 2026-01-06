@@ -42,8 +42,8 @@ INSTALLED_APPS = [
     'comment',
     'tickets',
     'rest_framework',
+    "rest_framework.authtoken",
     'drf_spectacular',
-
 ]
 SPECTACULAR_SETTINGS = {
     "TITLE": "Achareh API",

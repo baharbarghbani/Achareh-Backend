@@ -7,8 +7,8 @@ from django.contrib.auth.admin import UserAdmin
 @admin.register(Role)
 class CustomRoleAdmin(admin.ModelAdmin):
     list_display = ['id', 'name']
-    list_display_links = ['name']
-    search_fields = ['name']
+    list_display_links = ['id','name']
+    search_fields = ['id','name']
 
 
 @admin.register(User)

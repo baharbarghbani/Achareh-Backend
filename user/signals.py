@@ -11,8 +11,11 @@ User = get_user_model()
 def create_profile_and_default_role(sender, instance, created, **kwargs):
     if not created:
         return
-
+    print("Profile making")
+    print(instance)
     Profile.objects.create(user=instance)
+    print(Profile.objects.filter(user=instance))
+
 
     role, _ = Role.objects.get_or_create(name=Role.Names.CUSTOMER)
     instance.roles.add(role)

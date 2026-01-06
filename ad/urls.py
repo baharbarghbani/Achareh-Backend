@@ -4,9 +4,12 @@ from .views import (
     AdRetrieveUpdateDestroyAPIView,
     OpenAdListAPIView,
     AdRequestListCreateAPIView,
-    AdRequestRetrieveUpdateAPIView,
+    # AdRequestRetrieveUpdateAPIView,
     RequestListAPIView,
     AdRatingAPIView,
+    AdRequestChooseAPIView,
+    AdRequestDoneConfirmAPIView,
+    AdRequestDoneReportAPIView
 )
 
 urlpatterns = [
@@ -17,8 +20,9 @@ urlpatterns = [
 
     # Requests nested under ads
     path("ads/<int:pk>/requests/", AdRequestListCreateAPIView.as_view()),
-    path("ads/<int:pk>/requests/<int:request_pk>/", AdRequestRetrieveUpdateAPIView.as_view()),
-
+    path("ads/<int:pk>/requests/<int:request_pk>/choose/", AdRequestChooseAPIView.as_view()),
+    path("ads/<int:pk>/report-done/", AdRequestDoneReportAPIView.as_view()),
+    path("ads/<int:pk>/confirm-done/", AdRequestDoneConfirmAPIView.as_view()),
     # Performer own requests
     path("ads/requests/", RequestListAPIView.as_view()),
 

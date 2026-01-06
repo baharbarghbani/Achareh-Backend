@@ -29,7 +29,6 @@ class User(AbstractUser):
         verbose_name='نقش‌ها',
     )
     phone_number = models.CharField(max_length=20, null=False)
-
     class Meta:
         verbose_name = 'کاربر'
         verbose_name_plural = 'کاربران'
