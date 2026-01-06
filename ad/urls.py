@@ -8,7 +8,8 @@ from .views import (
     RequestListAPIView,
     AdRequestChooseAPIView,
     AdRequestDoneConfirmAPIView,
-    AdRequestDoneReportAPIView
+    AdRequestDoneReportAPIView,
+    # AdFilterByRatingAPIView
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path("ads/<int:pk>/report-done/", AdRequestDoneReportAPIView.as_view()),
     path("ads/<int:pk>/confirm-done/", AdRequestDoneConfirmAPIView.as_view()),
     path("ads/requests/", RequestListAPIView.as_view()),
+    # path("ads/filter-by-rating/", AdFilterByRatingAPIView.as_view()),
 ]

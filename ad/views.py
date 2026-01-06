@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
+from django.db.models import Avg, Count
 from .models import Ad, AdRequest
 from .serializer import (
     AdCreateSerializer,
@@ -175,55 +176,6 @@ class AdRequestDoneConfirmAPIView(APIView):
         )
         return Response(AdReadSerializer(ad).data, status=200)
 
-
-# class AdRequestRetrieveUpdateAPIView(RetrieveUpdateAPIView):
-
-#     permission_classes = [IsAuthenticated]
-
-#     def get_serializer_class(self):
-#         return AdRequestReadSerializer if self.request.method == "GET" else AdRequestChooseSerializer
-
-#     def patch(self, request, *args, **kwargs):
-#         user = request.user
-
-#         serializer = self.get_serializer(data=request.data, partial=True)
-#         serializer.is_valid(raise_exception=True)
-#         if serializer.validated_data.get("choose") is not True:
-#             raise ValidationError({"choose": "برای انتخاب پیمانکار باید choose=true ارسال شود."})
-
-#         with transaction.atomic():
-#             ad = Ad.objects.select_for_update().get(pk=self.kwargs["pk"])
-
-#             if ad.creator_id != user.id:
-#                 raise PermissionDenied("Only the creator can choose a performer.")
-#             if ad.status != Ad.Status.OPEN:
-#                 raise ValidationError("این آگهی در وضعیت باز نیست.")
-#             if ad.performer_id is not None:
-#                 raise ValidationError("برای این آگهی قبلاً انجام‌دهنده انتخاب شده است.")
-
-#             req = (
-#                 AdRequest.objects.select_for_update()
-#                 .select_related("performer", "ad")
-#                 .get(pk=self.kwargs["request_pk"], ad_id=ad.id)
-#             )
-
-#             if req.status != AdRequest.Status.PENDING:
-#                 raise ValidationError("این درخواست قابل انتخاب نیست.")
-
-#             req.status = AdRequest.Status.APPROVED
-#             req.save(update_fields=["status"])
-
-#             ad.performer = req.performer
-#             ad.status = Ad.Status.ASSIGNED
-#             ad.save(update_fields=["performer", "status"])
-
-#             AdRequest.objects.filter(ad=ad).exclude(id=req.id).update(
-#                 status=AdRequest.Status.REJECTED
-#             )
-
-#         return Response(AdRequestReadSerializer(req).data, status=200)
-
-
 class RequestListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AdRequestReadSerializer
@@ -232,5 +184,6 @@ class RequestListAPIView(ListAPIView):
         if not is_performer(self.request.user):
             raise PermissionDenied("شما پیمانکار نیستید.")
         return AdRequest.objects.filter(performer=self.request.user).order_by("-created_at")
+
 
 

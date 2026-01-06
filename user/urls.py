@@ -7,7 +7,7 @@ from .views import (
     UserRetrieveDestroyAPIView,
     PerformerProfileAPIView,
     CustomerProfileAPIView,
-    CustomerFilterSortAPIView
+    CustomerFilterAPIView
 )
 
 urlpatterns = [
@@ -18,6 +18,10 @@ urlpatterns = [
     path("users/profile/customer/<int:user_id>/", CustomerProfileAPIView.as_view(), name="customer-profile"),
     path("users/", UserListAPIView.as_view(), name="user-list"),
     path("users/<int:pk>/", UserRetrieveDestroyAPIView.as_view(), name="user-detail"),
-    path("users/filter-sort/", CustomerFilterSortAPIView.as_view(), name="customer-filter-sort"),
+    path(
+        "users/filter/<int:base_rating>/<int:base_comments>/",
+        CustomerFilterAPIView.as_view(),
+        name="customer-filter",
+    ),
 ]
 

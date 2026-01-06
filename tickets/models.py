@@ -29,7 +29,8 @@ class Ticket(models.Model):
         related_name='tickets',
         blank=True,
         null=True,
-        verbose_name='آگهی'
+        verbose_name='آگهی',
+        default=0
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')

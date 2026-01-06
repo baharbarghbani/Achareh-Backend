@@ -19,6 +19,18 @@ class UserReadSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'roles', 'first_name', 'last_name', 'phone_number']
 
+class CustomerCardSerializer(serializers.ModelSerializer):
+    avg_rating = serializers.FloatField(read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "avg_rating",
+            "comment_count",
+        ]
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)

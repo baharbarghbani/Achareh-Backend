@@ -6,12 +6,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg, Count
-from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, PerformerProfileSerializer, CustomerProfileSerializer
+from .serializer import UserReadSerializer, UserCreateSerializer, UserUpdateDeleteSerializer, LoginSerializer, PerformerProfileSerializer, CustomerProfileSerializer, CustomerCardSerializer
 from .models import Profile, Role
 from ad.models import Ad
 from django.db import models
 from .utils import is_performer
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
 
 
 User = get_user_model()
@@ -137,39 +138,31 @@ class CustomerProfileAPIView(RetrieveAPIView):
         return profile
 
 
-class CustomerFilterSortAPIView(ListAPIView):
+class CustomerFilterAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = UserReadSerializer
+    serializer_class = CustomerCardSerializer
 
     def get_queryset(self):
         customer_role = Role.objects.get(name=Role.Names.CUSTOMER)
-        customers = User.objects.filter(roles=customer_role)
 
-        customers = customers.annotate(
-            avg_rating=Avg('profile__average_rating'),
-            comment_count=Count('profile__comments')
+        base_rating = self.kwargs["base_rating"]
+        base_comments = self.kwargs["base_comments"]
+
+        qs = (
+            User.objects
+            .filter(roles=customer_role)
+            .select_related("profile")
+            .annotate(
+                avg_rating=models.F("profile__average_rating"),
+                comment_count=Count("profile__comments", distinct=True),
+            )
+            .filter(
+                avg_rating__gte=base_rating,
+                comment_count__gte=base_comments,
+            )
+            # fixed ordering — backend controlled
+            .order_by("-avg_rating", "-comment_count")
         )
 
-        min_rating = self.request.query_params.get('min_rating')
-        max_rating = self.request.query_params.get('max_rating')
-        min_comments = self.request.query_params.get('min_comments')
-        max_comments = self.request.query_params.get('max_comments')
+        return qs
 
-        if min_rating:
-            customers = customers.filter(avg_rating__gte=min_rating)
-        if max_rating:
-            customers = customers.filter(avg_rating__lte=max_rating)
-        if min_comments:
-            customers = customers.filter(comment_count__gte=min_comments)
-        if max_comments:
-            customers = customers.filter(comment_count__lte=max_comments)
-
-        sort_by = self.request.query_params.get('sort_by', 'avg_rating')  # Default sort by rating
-        order = self.request.query_params.get('order', 'desc')  # Default descending
-
-        if order == 'asc':
-            customers = customers.order_by(sort_by)
-        else:
-            customers = customers.order_by(f'-{sort_by}')
-
-        return customers
